@@ -1,0 +1,50 @@
+name: Execute plugin
+
+on: [ pull_request ]
+
+jobs:
+  execute-plugin:
+    runs-on: ubuntu-latest
+
+    env:
+      JAVA_VERSION: 17
+
+    steps:
+      - name: Checkout main repository
+        uses: actions/checkout@v2
+      - name: Setup Java
+        uses: actions/setup-java@v1
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+      - name: Install project
+        run: 'mvn clean install'
+      - name: Set group_id
+        id: group_id
+        run: 'echo ::set-output name=GROUP_ID::$(mvn help:evaluate -Dexpression="project.groupId" -q -DforceStdout)'
+      - name: Set artifact_id
+        id: artifact_id
+        run: 'echo ::set-output name=ARTIFACT_ID::$(mvn help:evaluate -Dexpression="project.artifactId" -q -DforceStdout)'
+      - name: Set version
+        id: version
+        run: 'echo ::set-output name=VERSION::$(mvn help:evaluate -Dexpression="project.version" -q -DforceStdout)'
+      - name: Set plugin goal
+        id: goal
+        run: 'echo ::set-output name=GOAL::$(mvn help:describe -DgroupId="${{ steps.group_id.outputs.GROUP_ID }}" -DartifactId="${{ steps.artifact_id.outputs.ARTIFACT_ID }}" -Ddetail | grep -Pzo "This plugin has \d goal:\s+[a-zA-Z0-9_\-]+:\K[a-zA-Z0-9_\-]+" | tr -d "\0")'
+      - name: Set parameter name
+        id: parameter_name
+        run: 'echo ::set-output name=PARAMETER_NAME::$(mvn help:describe -DgroupId="${{ steps.group_id.outputs.GROUP_ID }}" -DartifactId="${{ steps.artifact_id.outputs.ARTIFACT_ID }}" -Ddetail | grep -Po "User property:\s\K[a-zA-Z]+")'
+      - name: Run plugin without parameter - run no.1
+        run: 'mvn ${{ steps.group_id.outputs.GROUP_ID}}:${{ steps.artifact_id.outputs.ARTIFACT_ID }}:${{ steps.version.outputs.VERSION }}:${{ steps.goal.outputs.GOAL }}'
+      - name: Run plugin without parameter - run no.2
+        run: 'mvn ${{ steps.group_id.outputs.GROUP_ID}}:${{ steps.artifact_id.outputs.ARTIFACT_ID }}:${{ steps.version.outputs.VERSION }}:${{ steps.goal.outputs.GOAL }}'
+      - name: Run plugin without parameter - run no.3
+        run: 'mvn ${{ steps.group_id.outputs.GROUP_ID}}:${{ steps.artifact_id.outputs.ARTIFACT_ID }}:${{ steps.version.outputs.VERSION }}:${{ steps.goal.outputs.GOAL }}'
+      - name: Run plugin without parameter - run no.4
+        run: 'mvn ${{ steps.group_id.outputs.GROUP_ID}}:${{ steps.artifact_id.outputs.ARTIFACT_ID }}:${{ steps.version.outputs.VERSION }}:${{ steps.goal.outputs.GOAL }}'
+      - name: Set second file name
+        id: file_name
+        run: 'echo ::set-output name=SECOND_FILE_NAME::$(find */**/resources -name "*.txt" | grep -Po "(?<=\/)[a-zA-z0-9_\-]+(?=.txt)" -m2 | tail -n1)'
+      - name: Run plugin with second file name as parameter
+        run: 'mvn ${{ steps.group_id.outputs.GROUP_ID}}:${{ steps.artifact_id.outputs.ARTIFACT_ID }}:${{ steps.version.outputs.VERSION }}:${{ steps.goal.outputs.GOAL }} -D${{ steps.parameter_name.outputs.PARAMETER_NAME}}="${{ steps.file_name.outputs.SECOND_FILE_NAME }}"'
+      - name: Run plugin with invalid file name as parameter
+        run: 'mvn ${{ steps.group_id.outputs.GROUP_ID}}:${{ steps.artifact_id.outputs.ARTIFACT_ID }}:${{ steps.version.outputs.VERSION }}:${{ steps.goal.outputs.GOAL }} -D${{ steps.parameter_name.outputs.PARAMETER_NAME}}="non-existent-filename" || :'
